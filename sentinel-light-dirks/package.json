@@ -1,0 +1,10 @@
+{
+  "name": "sentinel-light-dirks",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Private Sentinel Light DIRKS grocery workflow prototype with simulated NunnPay handoff.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node test-engine.cjs && node --check dist/app.js && node --check dist/engine.js && node --check dist/nunnpay.js"
+  }
+}

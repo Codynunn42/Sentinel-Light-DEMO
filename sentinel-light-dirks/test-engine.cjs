@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');const D=require('./dist/engine.js');
+function prepared(budget=85){const t=D.create();D.prepare(t,'Weekly groceries; ask before substitutions.',budget);return t;}
+let t=prepared();assert.equal(D.total(t),42.25);assert.throws(()=>D.dispatch(t,'confirmed'),/approval/);D.approve(t);D.edit(t,0,1);assert.equal(t.approval,null);assert.throws(()=>D.dispatch(t,'confirmed'),/approval/);D.approve(t);D.dispatch(t,'confirmed');assert.equal(t.state,'confirmed');assert.throws(()=>D.dispatch(t,'confirmed'));
+t=prepared(20);assert.throws(()=>D.approve(t),/budget/);t=prepared();D.approve(t);D.cancel(t);assert.equal(t.dispatched,false);assert.equal(t.state,'cancelled');assert.throws(()=>D.dispatch(t,'confirmed'));
+t=prepared();D.approve(t);D.dispatch(t,'timeout');assert.equal(t.state,'unresolved');assert.throws(()=>D.dispatch(t,'confirmed'));assert.throws(()=>D.cancel(t));D.reconcile(t);assert.equal(t.state,'confirmed');assert.equal(t.events.filter(x=>x.label.includes('dispatched once')).length,1);
+t=prepared();D.approve(t);t.items[0].price++;assert.throws(()=>D.dispatch(t,'confirmed'),/approval/);t=prepared();D.approve(t);D.dispatch(t,'failed');assert.equal(t.state,'failed');assert.throws(()=>D.reconcile(t));
+t=prepared();t.items.forEach(i=>i.qty=0);assert.throws(()=>D.approve(t),/at least one/);assert.throws(()=>D.prepare(D.create(),' ',85));assert.throws(()=>D.prepare(D.create(),'groceries',NaN));
+console.log('Passed: exact approval, invalidation, budget limits, cancellation, dispatch guard, timeout reconciliation, failure, empty basket and invalid requests.');
+t=prepared();D.approve(t);D.dispatch(t,'confirmed');assert.equal(t.payment.status,'pending');assert.equal(t.payment.providerReference,null);D.reconcilePayment(t);assert.equal(t.payment.status,'confirmed');assert.equal(t.events.filter(x=>x.label.includes('dispatched once')).length,1);assert.throws(()=>D.reconcilePayment(t));
+t=prepared();D.approve(t);D.dispatch(t,'timeout','confirmed');assert.equal(t.state,'unresolved');assert.equal(t.payment.status,'confirmed');D.reconcile(t);assert.equal(t.payment.status,'confirmed');
+t=prepared();D.approve(t);D.dispatch(t,'confirmed','timeout');D.reconcilePayment(t);assert.equal(t.state,'confirmed');assert.equal(t.payment.status,'confirmed');
+for(const [field,value] of [['recipient','different-recipient'],['fundingSource','real-wallet'],['currency','USDC'],['mode','live'],['amountMinor',1],['liveEnabled',true]]){t=prepared();D.approve(t);t.payment[field]=value;assert.throws(()=>D.dispatch(t,'confirmed'));assert.equal(t.dispatched,false);}
+t=prepared();D.approve(t);const oldKey=t.payment.idempotencyKey;D.edit(t,0,1);assert.notEqual(t.payment.idempotencyKey,oldKey);assert.equal(t.payment.status,'prepared');assert.equal(t.approval,null);
+t=prepared();D.approve(t);D.cancel(t);assert.equal(t.payment.status,'cancelled');assert.equal(t.dispatched,false);
+console.log('Passed: independent order/payment evidence, payment status checks without resubmission, recipient/funding/currency/amount guards, live-mode rejection and payment approval invalidation.');
